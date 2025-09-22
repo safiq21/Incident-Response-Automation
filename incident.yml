@@ -1,0 +1,58 @@
+- name: ISP Incident Response Automation
+  hosts: routers
+  become: yes
+  tasks:
+
+    - name: Check if nginx service is running
+      ansible.builtin.shell: systemctl is-active nginx || true
+      register: nginx_status
+
+    - name: Restart nginx if not running
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
+      when: nginx_status.stdout != "active"
+
+    - name: Capture CPU usage
+      ansible.builtin.shell: uptime
+      register: cpu_status
+
+    - name: Capture Memory usage
+      ansible.builtin.shell: free -h
+      register: memory_status
+
+    - name: Capture Disk usage
+      ansible.builtin.shell: df -h
+      register: disk_status
+
+    - name: Capture Interface status
+      ansible.builtin.shell: ip -br addr
+      register: interface_status
+
+    - name: Save incident report
+      ansible.builtin.copy:
+        dest: "reports/incident_{{ inventory_hostname }}_{{ ansible_date_time.iso8601 }}.log"
+        content: |
+          Incident Report for {{ inventory_hostname }}
+          ==============================
+          Nginx status: {{ nginx_status.stdout }}
+          CPU status: {{ cpu_status.stdout }}
+          Memory status: {{ memory_status.stdout }}
+          Disk status: {{ disk_status.stdout }}
+          Interface status: {{ interface_status.stdout }}
+
+    - name: Send incident report via Gmail
+      ansible.builtin.mail:
+        host: smtp.gmail.com
+        port: 587
+        username: "mohammedsafiq21@gmail.com"
+        password: "dvxstnstafagwivc"
+        to: "recipient_email@gmail.com"
+        subject: "Incident Report for {{ inventory_hostname }}"
+        body: |
+          Nginx status: {{ nginx_status.stdout }}
+          CPU status: {{ cpu_status.stdout }}
+          Memory status: {{ memory_status.stdout }}
+          Disk status: {{ disk_status.stdout }}
+          Interface status: {{ interface_status.stdout }}
+        secure: starttls
